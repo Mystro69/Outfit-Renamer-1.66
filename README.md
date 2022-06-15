@@ -1,7 +1,7 @@
 ![](https://cdn.discordapp.com/attachments/798256869583093821/986742108700409946/1.png)
 ![](https://cdn.discordapp.com/attachments/798256869583093821/986742109044359258/2.png)
 ## Colors:
-\~r~ = Red
+\~r~ = Red \n
 \~b~ = Blue
 \~g~ = Green
 \~y~ = Yellow
