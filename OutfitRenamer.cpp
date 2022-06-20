@@ -61,12 +61,12 @@ int main()
 		Pointer = 0x0254CEA0;
 	}
 	else if (GetModule(L"EOSSDK-Win64-Shipping.dll", pid).modBaseAddr != NULL) {
-		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Epic Games");
+		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: EG");
 		Pointer = 0x02548D30;
 	}
 	else {
-		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Not Supported (Using Steam Pointers)");
-		Pointer = 0x0254CEA0;
+		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: SC");
+		Pointer = 0x02548D30;
 	}
 
 	DWORD outfitOffets[30] = {
