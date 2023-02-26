@@ -1,13 +1,13 @@
-﻿#include <iostream>
+#include <iostream>
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <string>
-#include "color.hpp"
+#include "color.h"
 
 MODULEENTRY32 GetModule(const wchar_t* ModuleName, DWORD ProcessId)
 {
 	MODULEENTRY32 modEntry = { 0 };
-	
+
 	HANDLE SnapShot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, ProcessId);
 	if (SnapShot)
 	{
@@ -34,7 +34,7 @@ MODULEENTRY32 GetModule(const wchar_t* ModuleName, DWORD ProcessId)
 
 int main()
 {
-	SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Waiting For Game");	
+	SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Waiting For Game");
 	std::cout << "Waiting For Game  ";
 	std::cout << '-' << std::flush;
 	while (!FindWindowA(NULL, "Grand Theft Auto V")) {
@@ -48,7 +48,7 @@ int main()
 		std::cout << "\b-" << std::flush;
 	}
 	system("cls");
-	
+
 	HWND hwnd_AC = FindWindowA(NULL, "Grand Theft Auto V");
 	DWORD pid = NULL;
 	GetWindowThreadProcessId(hwnd_AC, &pid);
@@ -58,15 +58,16 @@ int main()
 	DWORD Pointer;
 	if (GetModule(L"steam_api64.dll", pid).modBaseAddr != NULL) {
 		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Steam");
-		Pointer = 0x0254CEA0;
+		//Pointer = 0x0254CEA0;
+		Pointer = 0x02540EE0; //Works
 	}
 	else if (GetModule(L"EOSSDK-Win64-Shipping.dll", pid).modBaseAddr != NULL) {
 		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: EG");
-		Pointer = 0x02548D30;
+		Pointer = 0x0253CD70; //May not work
 	}
 	else {
 		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: SC");
-		Pointer = 0x02548D30;
+		Pointer = 0x0253CD70; //May not work
 	}
 
 	DWORD outfitOffets[30] = {
@@ -92,14 +93,14 @@ int main()
 		0x9E8, // 20
 
 	};
-	
+
 	for (int i = 0; i < 20; i++) {
 		unsigned long long result;
 		char name[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 };
 		ReadProcessMemory(phandle, (void*)((unsigned long long)module.modBaseAddr + Pointer), &result, sizeof(result), 0);
 		ReadProcessMemory(phandle, (void*)((unsigned long long)result + outfitOffets[i]), &name, strlen(name) + 1, 0);
 		if (strlen(name) > 0)
-			std::cout << i+1 << " | "  << name  << std::endl;
+			std::cout << i + 1 << " | " << name << std::endl;
 		else
 		{
 			std::cout << colors::red << i + 1 << " | " << name << colors::reset << "\n";
@@ -110,12 +111,12 @@ int main()
 	int element;
 	std::cout << "Which one do you want to edit ?: ";
 	std::cin >> element;
-	
+
 	std::cout << "What do you want to change it to ?: ";
 	std::string s;
 	std::cin.ignore();
 	std::getline(std::cin, s, '\n');
-	
+
 	unsigned long long result;
 	ReadProcessMemory(phandle, (void*)((unsigned long long)module.modBaseAddr + Pointer), &result, sizeof(result), 0);
 	WriteProcessMemory(phandle, (void*)(result + outfitOffets[element - 1]), s.c_str(), size(s) + 1, 0);
