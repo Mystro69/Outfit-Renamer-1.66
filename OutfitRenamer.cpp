@@ -1,40 +1,77 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <iostream>
 #include <Windows.h>
 #include <TlHelp32.h>
 #include <string>
+#include <vector>
+#include <psapi.h>
 #include "color.h"
 
-MODULEENTRY32 GetModule(const wchar_t* ModuleName, DWORD ProcessId)
+MODULEENTRY32 GetModule(char* ModuleName, DWORD ProcessId)
 {
 	MODULEENTRY32 modEntry = { 0 };
+	MODULEENTRY32 entry;
+	entry.dwSize = sizeof(MODULEENTRY32);
+	DWORD baseAddress = 0;
 
-	HANDLE SnapShot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, ProcessId);
-	if (SnapShot)
-	{
-		MODULEENTRY32W ModuleEntry = { 0 };
-		ModuleEntry.dwSize = sizeof(ModuleEntry);
+	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, ProcessId);
 
-		if (Module32FirstW(SnapShot, &ModuleEntry))
-		{
-			do
-			{
-				if (wcscmp(ModuleEntry.szModule, ModuleName) == 0)
-				{
-					modEntry = ModuleEntry;
-					break;
-				}
-			} while (Module32NextW(SnapShot, &ModuleEntry));
-		}
-
-		CloseHandle(SnapShot);
+	if (Module32First(snapshot, &entry)) {
+		do {
+			if (_stricmp(entry.szModule, ModuleName) == 0) {
+				modEntry = entry;
+				break;
+			}
+		} while (Module32Next(snapshot, &entry));
 	}
 
+	CloseHandle(snapshot);
 	return modEntry;
+}
+
+std::vector<uintptr_t> AOBScan(HANDLE hProcess, const char* pattern, const char* mask, uintptr_t startAddr, uintptr_t endAddr)
+{
+	std::vector<uintptr_t> results;
+	MEMORY_BASIC_INFORMATION mbi;
+	uintptr_t baseAddress = startAddr;
+	while (baseAddress < endAddr)
+	{
+		if (VirtualQueryEx(hProcess, (LPCVOID)baseAddress, &mbi, sizeof(mbi)))
+		{
+			if ((mbi.State == MEM_COMMIT) && (mbi.Protect != PAGE_NOACCESS))
+			{
+				char* buffer = new char[mbi.RegionSize];
+				SIZE_T bytesRead;
+				if (ReadProcessMemory(hProcess, mbi.BaseAddress, buffer, mbi.RegionSize, &bytesRead))
+				{
+					for (uintptr_t i = 0; i < (bytesRead - strlen(mask)); i++)
+					{
+						bool found = true;
+						for (uintptr_t j = 0; j < strlen(mask); j++)
+						{
+							if ((mask[j] != '?') && (pattern[j] != buffer[i + j]))
+							{
+								found = false;
+								break;
+							}
+						}
+						if (found)
+						{
+							results.push_back((uintptr_t)mbi.BaseAddress + i);
+						}
+					}
+				}
+				delete[] buffer;
+			}
+		}
+		baseAddress += mbi.RegionSize;
+	}
+	return results;
 }
 
 int main()
 {
-	SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Waiting For Game");
+	SetConsoleTitleA("Outfit Renamer 1.66 | Contact: Mystro#1450 | Platform: Waiting For Game");
 	std::cout << "Waiting For Game  ";
 	std::cout << '-' << std::flush;
 	while (!FindWindowA(NULL, "Grand Theft Auto V")) {
@@ -52,22 +89,28 @@ int main()
 	HWND hwnd_AC = FindWindowA(NULL, "Grand Theft Auto V");
 	DWORD pid = NULL;
 	GetWindowThreadProcessId(hwnd_AC, &pid);
-	MODULEENTRY32 module = GetModule(L"GTA5.exe", pid);
+	MODULEENTRY32 module = GetModule((char*)"GTA5.exe", pid);
 	HANDLE phandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 
-	DWORD Pointer;
-	if (GetModule(L"steam_api64.dll", pid).modBaseAddr != NULL) {
-		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: Steam");
-		//Pointer = 0x0254CEA0;
-		Pointer = 0x02540EE0; //Works
+	if (GetModule((char*)"steam_api64.dll", pid).modBaseAddr != NULL) {
+		SetConsoleTitleA("Outfit Renamer 1.66 | Contact: Mystro#1450 | Platform: Steam");
 	}
-	else if (GetModule(L"EOSSDK-Win64-Shipping.dll", pid).modBaseAddr != NULL) {
-		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: EG");
-		Pointer = 0x0253CD70; //May not work
+	else if (GetModule((char*)"EOSSDK-Win64-Shipping.dll", pid).modBaseAddr != NULL) {
+		SetConsoleTitleA("Outfit Renamer 1.66 | Contact: Mystro#1450 | Platform: EG");
 	}
 	else {
-		SetConsoleTitleA("Outfit Renamer 1.60 | Contact: Mystro#1450 | Platform: SC");
-		Pointer = 0x0253CD70; //May not work
+		SetConsoleTitleA("Outfit Renamer 1.66 | Contact: Mystro#1450 | Platform: SC");
+	}
+
+	std::vector<uintptr_t> results = AOBScan(phandle, "\x10\x5D\x00\x00\x00\x00\x00\x00\x60\x5D", "xx????xxxx", (uintptr_t)module.modBaseAddr, (uintptr_t)module.modBaseAddr + module.modBaseSize);
+	DWORD Pointer;
+
+	// Print the results
+	for (uintptr_t address : results)
+	{
+		std::cout << "Found pattern at address: " << std::hex << address << std::dec << std::endl;
+		Pointer = (DWORD)(address - (DWORD_PTR)module.modBaseAddr);
+		std::cout << "Found pointer: " << std::hex << Pointer << std::dec << std::endl;
 	}
 
 	DWORD outfitOffets[30] = {
@@ -99,6 +142,7 @@ int main()
 		char name[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20 };
 		ReadProcessMemory(phandle, (void*)((unsigned long long)module.modBaseAddr + Pointer), &result, sizeof(result), 0);
 		ReadProcessMemory(phandle, (void*)((unsigned long long)result + outfitOffets[i]), &name, strlen(name) + 1, 0);
+
 		if (strlen(name) > 0)
 			std::cout << i + 1 << " | " << name << std::endl;
 		else
